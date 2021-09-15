@@ -35,10 +35,10 @@ class Filter:
                 if not isinstance(level, dict):
                     break
                 last_level, last_char = level, chars[i]
-                for j in range(i, len(chars)):
-                    level[chars[j]] = {}
-                    last_level, last_char = level, chars[j]
-                    level = level[chars[j]]
+                for k in range(i, len(chars)):
+                    level[chars[k]] = {}
+                    last_level, last_char = level, chars[k]
+                    level = level[chars[k]]
                 last_level[last_char] = {self.delimit: count}
                 break
             if i == len(chars) - 1:
@@ -75,10 +75,37 @@ class Filter:
                             # keywords.clear()
                             # for i in line_copy[start:start+step]:
                             #     keywords.append(i)
-                            start += step - 1
+                            # start += step - 1
                             total_count += 1
                             print('行数'+str(current_row)+':'+''.join(keywords)+' '
                                   + self.sensitive_words_dict[level[char][self.delimit]])
+                            keywords.clear()
+                            break
+                    elif ''.join(lazy_pinyin(char, style=Style.FIRST_LETTER)) in level:
+                        word_pinyin = ''.join(lazy_pinyin(char))
+                        level = level[word_pinyin[0]]
+                        end = False
+                        for i in range(1, len(word_pinyin)):
+                            if word_pinyin[i] in level:
+                                level = level[word_pinyin[i]]
+                            else:
+                                end = True
+                                break
+                        if end:
+                            keywords.clear()
+                            break
+                        step += 1
+                        keywords.append(char)
+                        # print(level)
+                        if self.delimit in level:
+                            start += step - 1
+                            # keywords.clear()
+                            # for i in line_copy[start:start+step]:
+                            #     keywords.append(i)
+                            # start += step - 1
+                            total_count += 1
+                            print('行数'+str(current_row)+':'+''.join(keywords)+' '
+                                  + self.sensitive_words_dict[level[self.delimit]])
                             keywords.clear()
                             break
                     else:
