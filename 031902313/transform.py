@@ -51,11 +51,11 @@ def is_alphabet(char):
 
 
 def is_other(char):
-    if not(is_alphabet(char) or is_number(char) or is_chinese(char)):
+    if not(is_alphabet(char) or is_chinese(char)):
         return True
     else:
         return False
 
 
 if __name__ == '__main__':
-    word_combination('法轮功')
+    print(word_combination('法轮功'))
