@@ -1,7 +1,5 @@
 import sys
-import time
 from transform import *
-time1 = time.time()
 
 
 class Filter:
@@ -16,103 +14,86 @@ class Filter:
         sensitive_words_list = text.split('\n')
         count = 0
         for sensitive_words in sensitive_words_list:
-            self.sensitive_words_dict[count] = sensitive_words
+            self.sensitive_words_dict[count] = ' <'+sensitive_words+'> '
             combinations = word_combination(sensitive_words)
             for word in combinations:
                 self.add_sensitive_words(word, count)
             count += 1
 
     def add_sensitive_words(self, sensitive_word, count):
-        sensitive_word = sensitive_word.lower()
-        chars = sensitive_word.strip()
+        chars = sensitive_word.lower()
         if not chars:
             return
         level = self.sensitive_words
         for i in range(len(chars)):
-            if chars[i] in level:
-                level = level[chars[i]]
+            if is_chinese(chars[i]):
+                word_pinyin = ''.join(lazy_pinyin(chars[i]))
+            else:
+                word_pinyin = chars[i]
+            if word_pinyin in level:
+                level = level[word_pinyin]
             else:
                 if not isinstance(level, dict):
                     break
                 last_level, last_char = level, chars[i]
                 for k in range(i, len(chars)):
-                    level[chars[k]] = {}
-                    last_level, last_char = level, chars[k]
-                    level = level[chars[k]]
+                    if is_chinese(chars[k]):
+                        word_pinyin = ''.join(lazy_pinyin(chars[k]))
+                    else:
+                        word_pinyin = chars[k]
+                    level[word_pinyin] = {}
+                    last_level, last_char = level, word_pinyin
+                    level = level[word_pinyin]
                 last_level[last_char] = {self.delimit: count}
                 break
             if i == len(chars) - 1:
-                level[self.delimit] = 0
+                level[self.delimit] = count
 
-    def sensitive_words_filter(self, path):
-        file = open(path, 'r', encoding='utf-8')
+    def sensitive_words_filter(self, input_path, output_path):
+        input_file = open(input_path, 'r', encoding='utf-8')
+        output_file = open(output_path, 'w+', encoding='utf-8')
         current_row = 0
         total_count = 0
-        for line in file:
+        for line in input_file:
             line_copy = line
-            line.lower()
+            line = line.lower()
             current_row += 1
-            keywords = []
+            start_flag = False
             start = 0
             while start < len(line):
                 level = self.sensitive_words
                 step = 0
                 for char in line[start:]:
-                    #  中文敏感词可能进行一些伪装，在敏感词中插入除字母、数字、换行的若干字符仍属于敏感词  符号
-                    #  英文文本不区分大小写，在敏感词中插入若干空格、数字等其他符号(换行、字母除外)    数字+符号
-                    if len(keywords) == 0 and is_other(char):
-                        continue
-                    if len(keywords) != 0 and is_other(char):
+                    if not start_flag and is_other(char):
+                        break
+                    if start_flag and is_other(char):
                         step += 1
                         continue
+                    char = ''.join(lazy_pinyin(char))
                     if char in level:
+                        start_flag = True
                         step += 1
-                        keywords.append(char)
                         if self.delimit not in level[char]:
                             level = level[char]
                         else:
+                            keywords = line_copy[start:start+step]
                             start += step - 1
-                            # keywords.clear()
-                            # for i in line_copy[start:start+step]:
-                            #     keywords.append(i)
-                            # start += step - 1
                             total_count += 1
-                            print('行数'+str(current_row)+':'+''.join(keywords)+' '
-                                  + self.sensitive_words_dict[level[char][self.delimit]])
-                            keywords.clear()
-                            break
-                    elif ''.join(lazy_pinyin(char, style=Style.FIRST_LETTER)) in level:
-                        word_pinyin = ''.join(lazy_pinyin(char))
-                        level = level[word_pinyin[0]]
-                        end = False
-                        for i in range(1, len(word_pinyin)):
-                            if word_pinyin[i] in level:
-                                level = level[word_pinyin[i]]
-                            else:
-                                end = True
-                                break
-                        if end:
-                            keywords.clear()
-                            break
-                        step += 1
-                        keywords.append(char)
-                        # print(level)
-                        if self.delimit in level:
-                            start += step - 1
-                            # keywords.clear()
-                            # for i in line_copy[start:start+step]:
-                            #     keywords.append(i)
-                            # start += step - 1
-                            total_count += 1
-                            print('行数'+str(current_row)+':'+''.join(keywords)+' '
-                                  + self.sensitive_words_dict[level[self.delimit]])
-                            keywords.clear()
+                            output_file.write('Line'+str(current_row)+':'
+                                              + self.sensitive_words_dict[level[char][self.delimit]] + keywords+'\n')
+                            start_flag = False
                             break
                     else:
-                        keywords.clear()
+                        start_flag = False
                         break
                 start += 1
-        print(total_count)
+        input_file.close()
+        output_file.close()
+        with open(output_path, "r+", encoding='utf-8') as f:
+            old = f.read()
+            f.seek(0)
+            f.write('total: ' + str(total_count) + '\n')
+            f.write(old)
 
 
 if __name__ == '__main__':
@@ -122,12 +103,6 @@ if __name__ == '__main__':
         print(sys.argv)
         print(e)
     sensitive_filter = Filter()
-    sensitive_filter.parse_sensitive_words('words.txt')
-    sensitive_filter.sensitive_words_filter('org.txt')
-    j = json.dumps(sensitive_filter.sensitive_words, ensure_ascii=False)
-    print(j)
-    time2 = time.time()
-    print('总共耗时:' + str(time2 - time1) + 's')
-
-
+    sensitive_filter.parse_sensitive_words(sys.argv[1])
+    sensitive_filter.sensitive_words_filter(sys.argv[2], sys.argv[3])
 
