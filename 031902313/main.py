@@ -94,6 +94,14 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
         exit(0)
+    for file_path in sys.argv[1:4]:
+        try:
+            f = open(file_path, 'r')
+        except Exception as e:
+            print(e)
+            exit(0)
+        else:
+            f.close()
     sensitive_filter = Filter()
     with open(sys.argv[1], 'r', encoding='utf-8') as f:
         text = f.read()
